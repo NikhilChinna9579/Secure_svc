@@ -13,13 +13,13 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 @RestController
-@RequestMapping("/test")
+@RequestMapping("/")
 public class TestController {
 
     @Autowired
     private FileRepository fileRepository;
 
-    @GetMapping("/hw")
+    @GetMapping("")
     public String hello(){
         return "hello world!";
     }

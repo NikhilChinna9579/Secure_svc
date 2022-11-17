@@ -1,5 +1,7 @@
 package com.secure.secure.controller;
 
+import com.secure.secure.config.JwtUtility;
+import com.secure.secure.config.UserService;
 import com.secure.secure.dto.Input;
 import com.secure.secure.entity.User;
 import com.secure.secure.repository.UserRepository;
@@ -7,7 +9,10 @@ import com.secure.secure.util.CustomException;
 import com.secure.secure.util.ResponseMapper;
 import com.secure.secure.util.ResponseObject;
 import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -18,10 +23,52 @@ public class UserController implements ResponseMapper {
 
     @Autowired
     private UserRepository userRepository;
-//    @Autowired
-//    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private JwtUtility jwtUtility;
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private UserService userService;
+
+    @PostMapping("/login")
+    public ResponseObject login(@RequestBody Input.Login input) throws IOException, CustomException {
+        //todo validate input and set max length
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            input.username(),
+                            input.password()
+                    )
+            );
+        }
+        catch (Exception e){
+            return errorResponse(new CustomException("BAD CREDENTIALS"));
+        }
+
+        final UserDetails userDetails= userService.loadUserByUsername(input.username());
+        final String token = jwtUtility.generateToken(userDetails);
+        return successResponse(token);
 
 
+
+
+//        var user = userRepository.findByUsername(input.username());
+//        if(!user.isPresent()){
+//            return errorResponse(new CustomException("No user with username:" + input.username()));
+//        }
+//        if(!passwordEncoder.matches(input.password(),user.get().getPassword())){
+//            return errorResponse(new CustomException("Password did not match"));
+//        }
+//        if(!input.password().equals(user.get().getPassword())){
+//            return errorResponse(new CustomException("Password did not match"));
+//        }
+//        return successResponse("Successfully logged in user");
+    }
     @PostMapping("/register")
     public ResponseObject save(@RequestBody Input.Register input) throws IOException, CustomException {
         if(!input.password().equals(input.confirmPassword())){
@@ -43,21 +90,6 @@ public class UserController implements ResponseMapper {
         return successResponse("Successfully saved user" + saved.getId());
     }
 
-    @PostMapping("/login")
-    public ResponseObject login(@RequestBody Input.Login input) throws IOException, CustomException {
-        //todo validate input and set max length
-        var user = userRepository.findByUsername(input.username());
-        if(!user.isPresent()){
-            return errorResponse(new CustomException("No user with username:" + input.username()));
-        }
-//        if(!passwordEncoder.matches(input.password(),user.get().getPassword())){
-//            return errorResponse(new CustomException("Password did not match"));
-//        }
-        if(!input.password().equals(user.get().getPassword())){
-            return errorResponse(new CustomException("Password did not match"));
-        }
-        return successResponse("Successfully logged in user");
-    }
 
     @DeleteMapping("/delete/{id}")
     public ResponseObject deleteUser(@PathVariable(name ="id") String userId){
@@ -106,7 +138,7 @@ public class UserController implements ResponseMapper {
             user.setLastName("admin");
             user.setEmail("default@Admin.com");
             user.setUsername("defaultAdmin");
-            user.setPassword("defaultAdmin123");
+            user.setPassword(passwordEncoder.encode("defaultAdmin123"));
             user.setGender("M");
             user.setUploadLimit(500000L);
             userRepository.save(user);
